@@ -95,7 +95,6 @@ name = "btc-stream-rs"
 version = "0.1.0"
 dependencies = [
  "bitcoin",
- "bytes",
  "dotenv",
  "serde",
  "serde_json",

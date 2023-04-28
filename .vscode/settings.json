@@ -1,9 +1,17 @@
 {
+  "rust-analyzer.inlayHints.chainingHints.enable": false,
+  "rust-analyzer.inlayHints.closingBraceHints.enable": false,
+  "rust-analyzer.inlayHints.bindingModeHints.enable": false,
+  "rust-analyzer.inlayHints.typeHints.enable": true,
+  "rust-analyzer.inlayHints.parameterHints.enable": false,
   "cSpell.words": [
     "dotenv",
     "hashblock",
     "hashtx",
     "rawblock",
-    "rawtx"
+    "rawtx",
+    "txid",
+    "vout",
+    "vsize"
   ]
 }
