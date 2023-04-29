@@ -2,7 +2,6 @@ use futures_util::SinkExt;
 use futures_util::StreamExt;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
-use tokio::sync::broadcast;
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite;
 use tokio_tungstenite::tungstenite::Result;
@@ -10,9 +9,10 @@ use tokio_tungstenite::tungstenite::Result;
 use super::event::BitcoinEvent;
 use super::thread_id;
 
-type MessageReceiver = broadcast::Receiver<BitcoinEvent>;
+type MessageReceiver = tokio::sync::broadcast::Receiver<BitcoinEvent>;
+type StateSender = tokio::sync::mpsc::Sender<bool>;
 
-pub async fn listen_ws(rx: MessageReceiver) {
+pub async fn listen_ws(rx: MessageReceiver, tx: StateSender) {
     let addr = "127.0.0.1:7070".to_string();
 
     let try_socket = TcpListener::bind(&addr).await;
@@ -20,7 +20,13 @@ pub async fn listen_ws(rx: MessageReceiver) {
     println!("Listening on: {}", addr);
 
     while let Ok((stream, _)) = listener.accept().await {
-        tokio::spawn(accept_connection(stream, rx.resubscribe()));
+        let rx = rx.resubscribe();
+        let tx = tx.clone();
+        tokio::spawn(async move {
+            tx.send(true).await.unwrap();
+            accept_connection(stream, rx).await;
+            tx.send(false).await.unwrap();
+        });
     }
 }
 

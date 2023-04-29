@@ -1,4 +1,5 @@
 use tokio::sync::broadcast;
+use tokio::sync::mpsc;
 
 mod event;
 
@@ -21,13 +22,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
 
     // Create a channel for sending and receiving messages between threads
-    let (tx, rx) = broadcast::channel(10);
+    let (tx, rx) = broadcast::channel(100);
+
+    // Create a channel for sending connection updates
+    let (conn_updates_tx, conn_updates_rx) = mpsc::channel(100);
 
     // Start a new thread for receiving messages
-    let t1 = tokio::spawn(listen_bitcoin_events(tx));
+    let t1 = tokio::spawn(listen_bitcoin_events(tx, conn_updates_rx));
 
-    // let (ws_tx, ws_rx) = tokio::sync::mpsc::channel(100);
-    let t2 = tokio::spawn(listen_ws(rx));
+    // Start a new thread for listening for WebSocket connections
+    let t2 = tokio::spawn(listen_ws(rx, conn_updates_tx));
 
     tokio::try_join!(t1, t2)?;
 
