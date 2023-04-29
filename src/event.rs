@@ -1,6 +1,6 @@
 use zeromq::ZmqMessage;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BitcoinEventType {
     RawTx,
     HashTx,
@@ -31,13 +31,9 @@ impl BitcoinEventType {
             BitcoinEventType::Unknown => "unknown",
         }
     }
-
-    pub fn to_string(&self) -> String {
-        self.as_str().to_string()
-    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum BitcoinEvent {
     RawTx(Vec<u8>),
     HashTx(Vec<u8>),
@@ -54,15 +50,16 @@ impl TryFrom<ZmqMessage> for BitcoinEvent {
         let event_type = BitcoinEventType::from(event_type.as_str());
 
         let data: Vec<u8> = message.get(1).unwrap().to_vec();
-        let sequence_number_bytes: [u8; 4] = message.get(2).unwrap()[0..4].try_into()?;
-        let sequence_number = u32::from_le_bytes(sequence_number_bytes);
 
-        let event = match event_type.as_str() {
-            "rawtx" => BitcoinEvent::RawTx(data),
-            "hashtx" => BitcoinEvent::HashTx(data),
-            "rawblock" => BitcoinEvent::RawBlock(data),
-            "hashblock" => BitcoinEvent::HashBlock(data),
-            _ => BitcoinEvent::Unknown(data),
+        // let sequence_number_bytes: [u8; 4] = message.get(2).unwrap()[0..4].try_into()?;
+        // let sequence_number = u32::from_le_bytes(sequence_number_bytes);
+
+        let event = match event_type {
+            BitcoinEventType::RawTx => BitcoinEvent::RawTx(data),
+            BitcoinEventType::HashTx => BitcoinEvent::HashTx(data),
+            BitcoinEventType::RawBlock => BitcoinEvent::RawBlock(data), 
+            BitcoinEventType::HashBlock => BitcoinEvent::HashBlock(data),
+            BitcoinEventType::Unknown => BitcoinEvent::Unknown(data),
         };
 
         Ok(event)
@@ -72,8 +69,8 @@ impl TryFrom<ZmqMessage> for BitcoinEvent {
 impl std::fmt::Debug for BitcoinEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BitcoinEvent")
-            .field("type", &self.event_type())
-            .field("data", &self.data())
+            .field("type", &self.event_type().as_str())
+            .field("data", &hex::encode(self.data()))
             .finish()
     }
 }
