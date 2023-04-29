@@ -1,13 +1,14 @@
+use futures_util::SinkExt;
+use futures_util::StreamExt;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
+use tokio::sync::broadcast;
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite;
 use tokio_tungstenite::tungstenite::Result;
-use futures_util::SinkExt;
-use futures_util::StreamExt;
-use tokio::sync::broadcast;
 
-use crate::event::BitcoinEvent;
+use super::event::BitcoinEvent;
+use super::thread_id;
 
 type MessageReceiver = broadcast::Receiver<BitcoinEvent>;
 
@@ -38,12 +39,33 @@ async fn handle_connection(stream: TcpStream, mut rx: MessageReceiver) -> Result
     let ws_stream = accept_async(stream).await.expect("Failed to accept");
 
     // WebSocket message sender
-    let (mut tx, _) = ws_stream.split();
+    let (mut tx_ws, mut rx_ws) = ws_stream.split();
 
-    while let Ok(msg) = rx.recv().await {
-        println!("Received a message to broadcast: {:?}", msg);
-        tx.send(tungstenite::Message::Text("Hello".to_string())).await?;
+    loop {
+        tokio::select! {
+            // Listen for messages from the client
+            msg = rx_ws.next() => {
+                match msg {
+                    Some(Ok(_)) => {
+                        // Handle or ignore the client message here if needed
+                    },
+                    Some(Err(e)) => {
+                        eprintln!("WebSocket error: {}", e);
+                        break;
+                    },
+                    None => {
+                        println!("Client closed the connection");
+                        break;
+                    },
+                }
+            },
+            // Listen for messages from the broadcast receiver
+            msg = rx.recv() => {
+                println!("{} Received a message to broadcast: size={:?}", thread_id!(), msg.unwrap().data().len());
+                tx_ws.send(tungstenite::Message::Text("Hello".to_string())).await?;
+            },
+        }
     }
-    
+
     Ok(())
 }
