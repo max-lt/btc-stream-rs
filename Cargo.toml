@@ -22,7 +22,7 @@ path = "src/relay/main.rs"
 
 [[bin]]
 name = "bitcoin"
-path = "src/bitcoin.rs"
+path = "src/bitcoin/main.rs"
 
 [[bin]]
 name = "dns"
