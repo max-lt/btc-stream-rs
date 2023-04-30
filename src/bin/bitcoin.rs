@@ -7,6 +7,7 @@ use bitcoin::network::constants::ServiceFlags;
 use bitcoin::network::message::CommandString;
 use bitcoin::network::message::NetworkMessage;
 use bitcoin::network::message::RawNetworkMessage;
+use bitcoin::network::message_blockdata::Inventory;
 use bitcoin::network::message_network::VersionMessage;
 use tokio::net::TcpStream;
 
@@ -24,7 +25,7 @@ macro_rules! thread_id {
     };
 }
 
-const NONCE: u64 = 0x15646316584 as u64;
+const NONCE: u64 = 0x156463168584 as u64;
 
 const USER_AGENT: &str = "/rust-bitcoin:0.1.0/";
 
@@ -58,7 +59,7 @@ async fn connect_to_bitcoin_node() {
         sender: Address::new(&address, ServiceFlags::NETWORK),
         nonce: NONCE,
         user_agent: USER_AGENT.to_string(),
-        start_height: 787478,
+        start_height: 787670,
         relay: false,
     });
 
@@ -68,9 +69,10 @@ async fn connect_to_bitcoin_node() {
     // Split the stream into a reader and a writer
     let (srx, mut stx) = tokio::io::split(stream);
 
-    send_message(&mut stx, magic, version_message).await.unwrap();
-
-    println!("-> Sent version message");
+    // Send the version message
+    send_message(&mut stx, magic, version_message)
+        .await
+        .unwrap();
 
     // Read channel messages to write into the TCP stream
     let h1 = tokio::task::spawn(read_messages(srx, magic, tx));
@@ -99,13 +101,7 @@ async fn read_messages(mut tcp: TcpRead, magic: Magic, tx: Tx) {
 
         let header = &mut [0; 24];
 
-        println!("{} {} Received message, reading header...", thread_id!(), event_id);
-        let len = tcp.read_exact(header).await.unwrap();
-
-        if len == 0 {
-            return;
-        }
-
+        let _len = tcp.read_exact(header).await.unwrap();
         let msg_magic: Magic = match Decodable::consensus_decode(&mut &header[0..4]) {
             Ok(magic) => magic,
             Err(e) => {
@@ -114,7 +110,10 @@ async fn read_messages(mut tcp: TcpRead, magic: Magic, tx: Tx) {
             }
         };
 
-        println!("{} {} Magic: {:?} {:?}", thread_id!(), event_id, msg_magic, magic);
+        if msg_magic != magic {
+            println!("Invalid magic value");
+            return;
+        }
 
         let mut msg_command = [0u8; 12];
         msg_command.copy_from_slice(&header[4..16]);
@@ -126,8 +125,6 @@ async fn read_messages(mut tcp: TcpRead, magic: Magic, tx: Tx) {
             }
         };
 
-        println!("{} {} Message command: {}", thread_id!(), event_id, msg_command);
-
         let msg_len: u32 = match Decodable::consensus_decode(&mut &header[16..20]) {
             Ok(msg_len) => msg_len,
             Err(e) => {
@@ -136,13 +133,17 @@ async fn read_messages(mut tcp: TcpRead, magic: Magic, tx: Tx) {
             }
         };
 
-        println!("{} {} Message length: {}", thread_id!(), event_id, msg_len);
+        println!(
+            "{} {} Received {:?}, reading next {} bytes",
+            thread_id!(),
+            event_id,
+            msg_command,
+            msg_len
+        );
 
         let msg_len = msg_len as usize;
         let mut payload_buf = vec![0u8; msg_len];
-        let len = tcp.read_exact(&mut payload_buf).await.unwrap();
-
-        println!("{} {} Reading next {} bytes", thread_id!(), event_id, len);
+        let _len = tcp.read_exact(&mut payload_buf).await.unwrap();
 
         // header + payload
         let mut buf = vec![0u8; 24 + msg_len];
@@ -163,33 +164,36 @@ async fn read_messages(mut tcp: TcpRead, magic: Magic, tx: Tx) {
             return;
         }
 
-        println!("{} {} Received message: {:?}", thread_id!(), event_id, message);
-
         tx.send(message.payload).await.unwrap();
     }
 }
 
+/// Respond to messages received from the channel
 async fn send_messages(mut tcp: TcpWrite, magic: Magic, mut rx: Rx) {
     while let Some(message) = rx.recv().await {
         match message {
             NetworkMessage::Ping(nonce) => {
-                // println!("Received Ping message with nonce: {}", nonce);
-
                 let message = NetworkMessage::Pong(nonce);
                 send_message(&mut tcp, magic, message).await.unwrap();
-
-                println!("-> Sent Pong message");
             }
             NetworkMessage::Version(message) => {
-                // println!("Received version message: {:?}", message);
-
                 let message = NetworkMessage::Verack;
                 send_message(&mut tcp, magic, message).await.unwrap();
-
-                println!("-> Sent Verack message");
+            }
+            NetworkMessage::Addr(message) => {}
+            NetworkMessage::Verack => {
+                println!("Received verack");
+            }
+            NetworkMessage::Inv(inv) => {
+                println!("Received inv: {}", inv.len());
+                let message = NetworkMessage::GetData(inv);
+                send_message(&mut tcp, magic, message).await.unwrap();
+            }
+            NetworkMessage::Tx(tx) => {
+                println!("Received tx: {}", tx.txid().to_string());
             }
             message => {
-                // println!("Received message: [{}] {:?}", message.cmd(), message);
+                println!("Received message: [{}]", message.cmd());
             }
         }
     }
@@ -200,12 +204,18 @@ async fn send_message(
     magic: Magic,
     payload: NetworkMessage,
 ) -> Result<(), std::io::Error> {
+    let cmd = payload.cmd();
+
     let raw = RawNetworkMessage { magic, payload };
 
     let mut data = Vec::new();
     raw.consensus_encode(&mut data).unwrap();
 
-    return tcp.write_all(&data).await;
+    tcp.write_all(&data).await?;
+
+    println!("-> Sent {} message", cmd);
+
+    Ok(())
 }
 
 #[tokio::main]
