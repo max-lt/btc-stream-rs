@@ -1,3 +1,4 @@
+use bitcoin::consensus::Decodable;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 use tokio::net::TcpListener;
@@ -67,8 +68,27 @@ async fn handle_connection(stream: TcpStream, mut rx: MessageReceiver) -> Result
             },
             // Listen for messages from the broadcast receiver
             msg = rx.recv() => {
-                println!("{} Received a message to broadcast: size={:?}", thread_id!(), msg.unwrap().data().len());
-                tx_ws.send(tungstenite::Message::Text("Hello".to_string())).await?;
+                match msg {
+                    Ok(BitcoinEvent::RawTx(data)) => {
+                        let mut reader = std::io::Cursor::new(data);
+                        let transaction = match bitcoin::Transaction::consensus_decode(&mut reader) {
+                            Ok(tx) => tx,
+                            Err(e) => {
+                                println!("Error decoding transaction: {}", e);
+                                continue;
+                            }
+                        };
+
+                        println!("{:?} Sending message: {:?}", thread_id!(), transaction.txid());
+                        tx_ws.send(tungstenite::Message::Text(transaction.txid().to_string())).await?;
+                    },
+                    Ok(event) => {
+                        println!("{:?} Skipping message: {:?}", thread_id!(), event.event_type());
+                    },
+                    Err(e) => {
+                        println!("{:?} Error receiving message: {}", thread_id!(), e);
+                    },
+                }
             },
         }
     }

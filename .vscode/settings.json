@@ -12,7 +12,9 @@
     "rawtx",
     "tungstenite",
     "txid",
+    "verack",
     "vout",
-    "vsize"
+    "vsize",
+    "cmptc"
   ]
 }
