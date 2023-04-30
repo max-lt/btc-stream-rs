@@ -15,3 +15,15 @@ dotenv = "0.15.0"
 tokio-tungstenite = "0.18.0"
 futures-util = "0.3.28"
 hex = "0.4.3"
+
+[[bin]]
+name = "relay"
+path = "src/relay/main.rs"
+
+[[bin]]
+name = "bitcoin"
+path = "src/bitcoin.rs"
+
+[[bin]]
+name = "dns"
+path = "src/dns.rs"

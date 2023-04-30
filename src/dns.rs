@@ -78,6 +78,4 @@ pub fn dns_seed(network: Network) -> Vec<SocketAddr> {
 fn main() {
     let seeds = dns_seed(Network::Bitcoin);
     println!("Bitcoin seeds: {:?}", seeds);
-    let seeds = dns_seed(Network::Testnet);
-    println!("Testnet seeds: {:?}", seeds);
 }
