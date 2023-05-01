@@ -79,7 +79,7 @@ async fn handle_connection(stream: TcpStream, mut rx: MessageReceiver) -> Result
                             }
                         };
 
-                        println!("{:?} Sending message: {:?}", thread_id!(), transaction.txid());
+                        println!("{:?} Sending tx: {}", thread_id!(), transaction.txid().to_string());
                         tx_ws.send(tungstenite::Message::Text(transaction.txid().to_string())).await?;
                     },
                     Ok(event) => {
