@@ -13,6 +13,8 @@
     "hashtx",
     "rawblock",
     "rawtx",
+    "sigint",
+    "sigterm",
     "tungstenite",
     "txid",
     "verack",
