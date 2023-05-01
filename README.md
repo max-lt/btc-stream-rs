@@ -17,5 +17,5 @@ cargo build --release --bin relay
 ## Use with docker
 
 ```bash
-docker run --rm -it -p 7070:7070 -e ZMQ_ADDRESS=tcp://127.0.0.1:28332 --name btc-relay ghcr.io/max-lt/btc-stream-rs
+docker run --rm -it -p 7070:7070 -e ZMQ_ADDRESS=tcp://127.0.0.1:28332 --name btc-relay ghcr.io/max-lt/btc-stream-rust
 ```
