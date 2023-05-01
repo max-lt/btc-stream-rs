@@ -14,7 +14,7 @@ type MessageReceiver = tokio::sync::broadcast::Receiver<BitcoinEvent>;
 type StateSender = tokio::sync::mpsc::Sender<bool>;
 
 pub async fn listen_ws(rx: MessageReceiver, tx: StateSender) {
-    let addr = "127.0.0.1:7070".to_string();
+    let addr = "0.0.0.0:7070".to_string();
 
     let try_socket = TcpListener::bind(&addr).await;
     let listener = try_socket.expect("Failed to bind");
