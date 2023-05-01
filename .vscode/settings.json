@@ -5,13 +5,17 @@
   "rust-analyzer.inlayHints.typeHints.enable": true,
   "rust-analyzer.inlayHints.parameterHints.enable": false,
   "cSpell.words": [
+    "Cmpct",
+    "cmptc",
     "dotenv",
+    "getdata",
     "hashblock",
     "hashtx",
     "rawblock",
     "rawtx",
     "tungstenite",
     "txid",
+    "verack",
     "vout",
     "vsize"
   ]
